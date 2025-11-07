@@ -1,0 +1,57 @@
+modules:
+  jira:adminPage:
+    # - key: github-integration-admin
+    #   resource: main
+    #   resolver:
+    #     function: resolver
+    #   render: native
+    #   title: get started page
+    #   useAsGetStarted: true
+    - key: saving-token
+      resource: save-token-ui
+      title: Github Integration
+      render: native
+      resolver:
+        function: save-token-fn
+    # - key: connected-page
+    #   resource: connected-page-ui
+    #   title: Admin page example
+    #   render: native
+      # resolver:
+      #   function: connected-fn
+
+  webtrigger:
+    - key: github-merge-trigger
+      function: process-merge-event
+      response:
+        type: dynamic
+
+  function:
+    - key: save-token-fn
+      handler: index.githubResolver
+    - key: process-merge-event
+      handler: index.handleMergePullRequestEvent
+
+
+app:
+  runtime:
+    name: nodejs22.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/ec273b70-3f36-44fe-9425-6d57a9eebfda
+
+resources:
+  - key: save-token-ui
+    path: /ui/app.tsx
+    tunnel:
+      port: 5000
+permissions:
+  scopes:
+    - storage:app
+    - read:jira-work
+    - write:jira-work
+  external:
+    fetch:
+      backend:
+        - https://github.com
+        - https://api.github.com
