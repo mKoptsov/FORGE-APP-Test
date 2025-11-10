@@ -3,6 +3,7 @@ import Resolver, { Request } from "@forge/resolver";
 
 import { GithubClient } from "../clients/Github";
 import { findTicketKey } from "../helpers";
+import { Response } from "../../common/types";
 
 type SaveTokenPayload = {
   token: string;
@@ -24,7 +25,6 @@ type Repository = {
   url: string;
 };
 
-
 type ResponseGetOpenPR = {
   repository: string;
   url: string;
@@ -34,49 +34,63 @@ type ResponseGetOpenPR = {
 
 const resolver = new Resolver();
 
-resolver.define("getRepositories", async (): Promise<Repository[]> => {
-  const client = new GithubClient("https://api.github.com");
+resolver.define(
+  "getRepositories",
+  async (): Promise<Response<Repository[]>> => {
+    const client = new GithubClient("https://api.github.com");
 
-  let userName: string = await storage.get("username"); // save and decript
+    let userName: string = await storage.get("username"); // save and decript
 
-  if (userName === undefined) {
-    const user = await client.getUser();
+    if (userName === undefined) {
+      const user = await client.getUser();
 
-    userName = user.login;
+      userName = user.login;
+    }
+
+    const result = await client.getListRepositoriesByUser(userName);
+
+    const repositories = result.map((repository) => ({
+      id: repository.id,
+      name: repository.name,
+      description: repository.description,
+      url: repository.html_url,
+    }));
+
+    return { data: repositories, success: true };
   }
+);
 
-  const result = await client.getListRepositoriesByUser(userName);
+resolver.define(
+  "saveToken",
+  async ({ payload }: Request<SaveTokenPayload>): Promise<Response<null>> => {
+    if (!payload.token) {
+      return { success: false };
+    }
 
-  return result.map((repository) => ({
-    id: repository.id,
-    name: repository.name,
-    description: repository.description,
-    url: repository.html_url,
-  }));
-});
+    await storage.set("github_token", payload.token);
 
-resolver.define("saveToken", async ({ payload }: Request<SaveTokenPayload>) => {
-  if (!payload.token) {
-    return { success: false };
+    const client = new GithubClient("https://api.github.com");
+    try {
+      const user = await client.getUser();
+
+      if (!user) {
+        return { success: false };
+      }
+
+      await storage.set("username", user.login);
+
+      return { data: null, success: true };
+    } catch (error) {
+      return { error: { message: "Invalid token" }, success: false };
+    }
   }
-
-  await storage.set("github_token", payload.token);
-
-  const client = new GithubClient("https://api.github.com");
-  const user = await client.getUser();
-
-  if (!user) {
-    return { success: false };
-  }
-
-  await storage.set("username", user.login);
-
-  return { success: true };
-});
+);
 
 resolver.define(
   "getOpenPullRequests",
-  async ({ payload }: Request<GetOpenPullRequest>): Promise<{result: ResponseGetOpenPR[]}> => {
+  async ({
+    payload,
+  }: Request<GetOpenPullRequest>): Promise<Response<ResponseGetOpenPR[]>> => {
     const { repositoryNames } = payload;
     const userName: string = await storage.get("username");
 
@@ -84,8 +98,14 @@ resolver.define(
 
     let result;
     console.log("repositories", repositoryNames);
+    try {
+      if (repositoryNames.length <= 0) {
+        return {
+          success: false,
+          error: { message: "Repository names does not have " },
+        };
+      }
 
-    if (repositoryNames.length > 0) {
       result = await Promise.all(
         repositoryNames.map(async (name) => {
           const pullRequests = await client.getListPullRequests(userName, name);
@@ -106,29 +126,94 @@ resolver.define(
           });
         })
       );
-    }
 
-    return { result: result.flat() };
+      return { data: result.flat(), success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: { message: "Something went wrong" },
+      };
+    }
   }
 );
 
 resolver.define(
   "mergePullRequest",
-  async ({ payload }: Request<mergePullRequest>) => {
+  async ({ payload }: Request<mergePullRequest>): Promise<Response<null>> => {
     const { repositoryName, pullRequestId } = payload;
 
-    const userName: string = await storage.get("username");
+    try {
+      const userName: string = await storage.get("username");
+      const client = new GithubClient("https://api.github.com");
 
+      const result = await client.mergePullRequest(
+        userName,
+        repositoryName,
+        pullRequestId
+      );
+
+      return {
+        data: null,
+        success: true,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: { message: "Something went wrong" },
+      };
+    }
+
+    // const client = new GithubClient("https://api.github.com");
+    // console.log("ha ha ha ", repositoryName, pullRequestId);
+
+    // return { success: true };
+  }
+);
+
+resolver.define("approvePullRequest", async ({ payload }) => {
+  const { repositoryName, pullRequestId } = payload;
+
+  try {
+    const userName: string = await storage.get("username");
     const client = new GithubClient("https://api.github.com");
-    console.log('ha ha ha ', repositoryName, pullRequestId);
-    const result = await client.mergePullRequest(
+
+    const result = await client.approvePullRequest(
       userName,
       repositoryName,
       pullRequestId
     );
 
-    return { success: true };
+    return {
+      data: null,
+      success: true,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: { message: "Something went wrong" },
+    };
   }
-);
+});
+
+resolver.define("checkToken", async () => {
+  const token = await storage.get("github_token");
+
+  if (!token) {
+    return {success: false, error: { message: 'Token does not exist'}};
+  } 
+
+  const client = new GithubClient("https://api.github.com");
+
+  try {
+    const user = await client.getUser();
+
+    if (!user) {
+      return { success: false };
+    }
+    return { data: null, success: true };
+  } catch (error) {
+    return { error: { message: "something went wrong" }, success: false };
+  }
+});
 
 export default resolver.getDefinitions();

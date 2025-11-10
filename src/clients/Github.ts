@@ -30,6 +30,7 @@ type Branch = {
 }
 
 export class GithubClient extends BaseHttpClient {
+
   constructor(baseUrl: string) {
     super(baseUrl);
   }
@@ -85,11 +86,21 @@ export class GithubClient extends BaseHttpClient {
   }
 
   async mergePullRequest(userName: string, repo: string, pullNumber: number): Promise<string> {
-    console.log('hui', userName, repo, pullNumber);
+
     const response = await this.makeRequest(`/repos/${userName}/${repo}/pulls/${pullNumber}/merge`, {
       method: "PUT",
     });
-    console.log('respose mergePullRequest', response);
+    // console.log('respose mergePullRequest', response);
     return response;
+  }
+
+  async approvePullRequest(userName: string, repo: string, pullNumber: number): Promise<any> {
+    const body = { event: 'APPROVE' };
+
+     const response = await this.makeRequest(`/repos/${userName}/${repo}/pulls/${pullNumber}/reviews`, {
+      method: "POST", 
+      body,
+    });
+    console.log(response);
   }
 }
