@@ -12,9 +12,6 @@ resolver.define('getRepositories', async () => {
 
   let userName: string = await storage.get('username');
 
-  console.log('userName', userName);
-
-
   if(userName === undefined) {
     const user =  await client.getUser();
 
@@ -22,6 +19,6 @@ resolver.define('getRepositories', async () => {
   }
   
   const result = await client.getListRepositoriesByUser(userName);
-  console.log('result', result);
+
   return result;
 });

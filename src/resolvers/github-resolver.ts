@@ -83,7 +83,7 @@ resolver.define(
     const client = new GithubClient("https://api.github.com");
 
     let result: ResponseGetOpenPR[][];
-    console.log("repositories", repositoryNames);
+
     try {
       if (repositoryNames.length <= 0) {
         return {

@@ -92,9 +92,9 @@ const ConnectPage: React.FC = () => {
   const handleApprove = async(repo: string, prNumber: number) => {
     try {
       const { success, error } = await approvePullRequest(repo, prNumber);
-      console.log('here', success, error);
+      // need to add this logic 
     } catch (error) {
-      console.log('ha ha ha');
+  
     }
     
   }
