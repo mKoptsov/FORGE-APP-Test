@@ -6,8 +6,11 @@ export type Repository = {
 };
 
 export type ResponseGetOpenPR = {
+  id: number,
+  prNumber: number,
   repository: string;
   url: string;
+  prOwnerName: string,
   ticketName: string;
   title: string;
 };

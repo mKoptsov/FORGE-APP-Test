@@ -1,15 +1,9 @@
 import { storage } from '@forge/api';
-import Resolver, { Request } from '@forge/resolver';
-import { requestJira } from '@forge/bridge';
+import Resolver from '@forge/resolver';
 
 import { GithubClient } from '../clients/Github';
 
-type SaveTokenPayload = {
-  token: string;
-};
-
 const resolver = new Resolver();
-
 
 resolver.define('getRepositories', async () => {
 	const owner = []; // maybe need to know about storage; 

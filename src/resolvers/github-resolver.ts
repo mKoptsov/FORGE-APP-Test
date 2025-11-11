@@ -3,7 +3,7 @@ import Resolver, { Request } from "@forge/resolver";
 
 import { GithubClient } from "../clients/Github";
 import { findTicketKey } from "../helpers";
-import { Response } from "../../common/types";
+import { Response, ResponseGetOpenPR, Repository } from "../../common/types";
 
 type SaveTokenPayload = {
   token: string;
@@ -13,23 +13,9 @@ type GetOpenPullRequest = {
   repositoryNames: string[];
 };
 
-type mergePullRequest = {
+type MergePullRequest = {
   repositoryName: string;
-  pullRequestId: number;
-};
-
-type Repository = {
-  id: number;
-  name: string;
-  description: string;
-  url: string;
-};
-
-type ResponseGetOpenPR = {
-  repository: string;
-  url: string;
-  ticketName: string;
-  title: string;
+  pullRequestNumber: number;
 };
 
 const resolver = new Resolver();
@@ -39,7 +25,7 @@ resolver.define(
   async (): Promise<Response<Repository[]>> => {
     const client = new GithubClient("https://api.github.com");
 
-    let userName: string = await storage.get("username"); // save and decript
+    let userName: string = await storage.get("username"); // save and decrypt
 
     if (userName === undefined) {
       const user = await client.getUser();
@@ -96,7 +82,7 @@ resolver.define(
 
     const client = new GithubClient("https://api.github.com");
 
-    let result;
+    let result: ResponseGetOpenPR[][];
     console.log("repositories", repositoryNames);
     try {
       if (repositoryNames.length <= 0) {
@@ -116,9 +102,10 @@ resolver.define(
             if (ticketName) {
               return {
                 id: pr.id,
-                number: pr.number,
+                prNumber: pr.number,
                 repository: name,
                 url: pr.html_url,
+                prOwnerName: pr.user.login,
                 ticketName,
                 title: pr.title,
               };
@@ -139,17 +126,17 @@ resolver.define(
 
 resolver.define(
   "mergePullRequest",
-  async ({ payload }: Request<mergePullRequest>): Promise<Response<null>> => {
-    const { repositoryName, pullRequestId } = payload;
+  async ({ payload }: Request<MergePullRequest>): Promise<Response<null>> => {
+    const { repositoryName, pullRequestNumber } = payload;
 
     try {
       const userName: string = await storage.get("username");
       const client = new GithubClient("https://api.github.com");
 
-      const result = await client.mergePullRequest(
+      await client.mergePullRequest(
         userName,
         repositoryName,
-        pullRequestId
+        pullRequestNumber
       );
 
       return {
@@ -159,19 +146,14 @@ resolver.define(
     } catch (error) {
       return {
         success: false,
-        error: { message: "Something went wrong" },
+        error: { message: "Can not merge the Pull Request" },
       };
     }
-
-    // const client = new GithubClient("https://api.github.com");
-    // console.log("ha ha ha ", repositoryName, pullRequestId);
-
-    // return { success: true };
   }
 );
 
-resolver.define("approvePullRequest", async ({ payload }) => {
-  const { repositoryName, pullRequestId } = payload;
+resolver.define("approvePullRequest", async ({ payload }): Promise<Response<null>> => {
+  const { repositoryName, pullRequestNumber } = payload;
 
   try {
     const userName: string = await storage.get("username");
@@ -180,7 +162,7 @@ resolver.define("approvePullRequest", async ({ payload }) => {
     const result = await client.approvePullRequest(
       userName,
       repositoryName,
-      pullRequestId
+      pullRequestNumber
     );
 
     return {
@@ -190,12 +172,12 @@ resolver.define("approvePullRequest", async ({ payload }) => {
   } catch (error) {
     return {
       success: false,
-      error: { message: "Something went wrong" },
+      error: { message: "Can not approve the Pull request" },
     };
   }
 });
 
-resolver.define("checkToken", async () => {
+resolver.define("checkToken", async (): Promise<Response<null>> => {
   const token = await storage.get("github_token");
 
   if (!token) {

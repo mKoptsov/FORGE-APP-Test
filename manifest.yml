@@ -1,24 +1,11 @@
 modules:
   jira:adminPage:
-    # - key: github-integration-admin
-    #   resource: main
-    #   resolver:
-    #     function: resolver
-    #   render: native
-    #   title: get started page
-    #   useAsGetStarted: true
     - key: saving-token
       resource: save-token-ui
       title: Github Integration
       render: native
       resolver:
         function: save-token-fn
-    # - key: connected-page
-    #   resource: connected-page-ui
-    #   title: Admin page example
-    #   render: native
-      # resolver:
-      #   function: connected-fn
 
   webtrigger:
     - key: github-merge-trigger
