@@ -29,8 +29,6 @@ export class JiraClient {
       transition: { id: status },
     };
 
-		console.log('body', body);
-
     const headers = { "Content-Type": "application/json" };
 
     try {

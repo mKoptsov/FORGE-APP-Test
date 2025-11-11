@@ -46,7 +46,7 @@ export abstract class BaseHttpClient {
     } catch (error) {
       console.error("Error", error);
   
-      throw new Error()
+      throw new Error(error);
     }
   }
 

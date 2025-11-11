@@ -22,8 +22,8 @@ export async function handleMergePullRequestEvent(
 
     const body = JSON.parse(request.body || "{}");
 
-    const { action, pull_request: pullRequest }= body.action;
-      
+    const { action, pull_request: pullRequest } = body;
+
     const ticketName = findTicketKey(pullRequest.head?.ref);
 
     if (action === PR_ACTION && pullRequest.merged === true) {
@@ -34,7 +34,8 @@ export async function handleMergePullRequestEvent(
 
       const status = findProperStatus(result.transitions, STATUS);
 
-      await jira.updateTicket("SCRUM-1", status.id);
+      const res = await jira.updateTicket(ticketName, status.id);
+
       return handleResponse(
         200,
         { "Content-Type": ["application/json"] },
@@ -42,7 +43,7 @@ export async function handleMergePullRequestEvent(
       );
     }
 
-    console.warn();
+    console.warn(`Status the ticket ${ticketName} was not updated.`);
 
     return handleResponse(
       200,

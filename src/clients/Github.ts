@@ -1,5 +1,6 @@
 import { BaseHttpClient } from "./HttpClient";
 import { storage } from "@forge/api";
+
 type Params  =  {
   state: 'open' | 'closed' | 'all'
   base: string,
@@ -22,7 +23,17 @@ type PullRequest = {
   body: string,
   head: Branch,
   base: Branch,
+  user: User,
 }
+
+type User = {
+  id: number,
+  login: string,
+  html_url: string,
+  name: string,
+  eamil: string,
+}
+
 type Branch = {
   label: string,
   ref: string,
@@ -30,6 +41,7 @@ type Branch = {
 }
 
 export class GithubClient extends BaseHttpClient {
+
   constructor(baseUrl: string) {
     super(baseUrl);
   }
@@ -49,26 +61,7 @@ export class GithubClient extends BaseHttpClient {
     return response;
   }
 
-  public async getToken(
-    clientId: string,
-    clientSecret: string,
-    code: string
-  ): Promise<any> {
-    const body = {
-      client_id: clientId,
-      client_secret: clientSecret,
-      code,
-    };
-
-    const response = await this.makeRequest(`/login/oauth/access_token`, {
-      method: "POST",
-      body,
-    });
-
-    return response;
-  }
-
-  public async getUser(): Promise<any> {
+  public async getUser(): Promise<User> {
     const token = await this.token();
 
     const response = await this.makeRequest(`/user`);
@@ -84,12 +77,22 @@ export class GithubClient extends BaseHttpClient {
     return await this.token();
   }
 
-  async mergePullRequest(userName: string, repo: string, pullNumber: number): Promise<string> {
-    console.log('hui', userName, repo, pullNumber);
-    const response = await this.makeRequest(`/repos/${userName}/${repo}/pulls/${pullNumber}/merge`, {
+  async mergePullRequest(userName: string, repo: string, pullRequestNumber: number): Promise<string> {
+    const response = await this.makeRequest(`/repos/${userName}/${repo}/pulls/${pullRequestNumber}/merge`, {
       method: "PUT",
     });
-    console.log('respose mergePullRequest', response);
+
+    return response;
+  }
+
+  async approvePullRequest(userName: string, repo: string, pullRequestNumber: number): Promise<string> {
+    const body = { event: 'APPROVE' };
+
+     const response = await this.makeRequest(`/repos/${userName}/${repo}/pulls/${pullRequestNumber}/reviews`, {
+      method: "POST", 
+      body,
+    });
+
     return response;
   }
 }

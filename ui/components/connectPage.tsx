@@ -1,21 +1,17 @@
 import React, { useEffect, useState } from "react";
-import ForgeReconciler, { DynamicTable, Text, Link, Spinner, Heading, Stack } from "@forge/react";
+import { Text, Spinner, Heading, Stack } from "@forge/react";
 import { requestJira } from "@forge/bridge";
 
-import { getRepositoriesForUser, getPullRequests, mergePullRequest } from "../services/invokes";
+import { getRepositoriesForUser, getPullRequests, mergePullRequest, approvePullRequest } from "../services/invokes";
 import PullRequestCard from "./pullRequest-card";
+import Repositories from "./repositories";
+
 import type { Repository, ResponseGetOpenPR } from "../../common/types";
 
-type PullRequestCardType = {
-  index: number,
-  id: number,
-  number: number,
-  repository: string,
-  ticketName: string,
-  title: string,
-  url: string,
-  onMerge: () => {},
-}
+type PullRequestWithStatus = ResponseGetOpenPR & {
+  merged?: boolean;
+  errorMessage?: string;
+};
 
 type Ticket = {
   expand: string,
@@ -25,56 +21,37 @@ type Ticket = {
 }
 
 const ConnectPage: React.FC = () => {
-  const [repos, setRepos] = useState([]);
+  const [repos, setRepos] = useState<Repository[]>([]);
+  const [pullRequests, setPullRequests] = useState<PullRequestWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pullRequests, setPullRequests] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchRepos = async () => {
       try {
-        const repositories = await getRepositoriesForUser();
-
-        const cells = repositories.map((repository: Repository) => {
-          const { name, description, url } = repository;
-          return { cells: [
-            {content: name },
-            {content: description },
-            {content: 
-              <Link href={url} openNewTab>
-                Open
-              </Link> 
-             }
-          ]}
-        });
-
-        const repositoryNames = repositories.map((r: Repository) => r.name);
+        const result = await getRepositoriesForUser();   
+     
+        if (result.success && result.data) {
+          setRepos(result.data);
+        }
+      
+        const repositoryNames = result.data.map((r: Repository) => r.name);
 
         const allOpenPRs = await getPullRequests(repositoryNames);
 
-        let tickets: Ticket[];
-        try {
-          tickets = await Promise.all(allOpenPRs.result.map(async (pullRequest: ResponseGetOpenPR) => {
+        const tickets = await Promise.all(allOpenPRs.data.map(async (pullRequest: ResponseGetOpenPR) => {
           const res = await requestJira(`/rest/api/3/issue/${pullRequest.ticketName}`);
           return await res.json();
         }));
-        } catch (error) {
-          console.log(error);
-        }
+       
 
-        const prsWithTickets = allOpenPRs.result.filter((pullRequest: ResponseGetOpenPR) =>
+        const prsWithTickets = allOpenPRs.data.filter((pullRequest: ResponseGetOpenPR) =>
           tickets.some((ticket: Ticket) => pullRequest.ticketName === ticket.key)
         );
 
-        console.log('her', allOpenPRs);
-        console.log('her2', tickets);
-        console.log('prsWithTickets', prsWithTickets);
         setPullRequests(prsWithTickets);
-
-
-        setRepos(cells);
-      } catch (e) {
-        setError(e.message);
+      } catch (error) {
+        setError(error.message);
       } finally {
         setLoading(false);
       }
@@ -83,8 +60,43 @@ const ConnectPage: React.FC = () => {
     fetchRepos();
   }, []);
 
-  const handleMerge = async(repo: string, id: number) => {
-    const res = mergePullRequest(repo, id);
+
+  const handleMerge = async(repo: string, prNumber: number) => {
+    try {
+      const { success, error } = await mergePullRequest(repo, prNumber);
+
+      if(success){
+        setPullRequests(prev =>
+          prev.map(pr =>
+            pr.prNumber === prNumber ? { ...pr, merged: true } : pr
+          )
+        );
+      } else {
+        setPullRequests(prev =>
+          prev.map(pr =>
+            pr.prNumber === prNumber ? { ...pr, merged: false,  errorMessage: error.message} : pr
+          )
+        );
+      }
+
+    } catch (error) {
+         setPullRequests(prev =>
+          prev.map(pr =>
+            pr.prNumber === prNumber ? { ...pr, merged: false,  errorMessage: error.message} : pr
+          )
+        )
+    }
+    
+  }
+
+  const handleApprove = async(repo: string, prNumber: number) => {
+    try {
+      const { success, error } = await approvePullRequest(repo, prNumber);
+      // need to add this logic 
+    } catch (error) {
+  
+    }
+    
   }
 
   if (loading) {
@@ -100,20 +112,9 @@ const ConnectPage: React.FC = () => {
       <Heading size="medium">Your Bitbucket Repositories</Heading>
       {repos.length === 0 ? (
         <Text>No repositories found.</Text>
-      ) : (
-        <DynamicTable
-          head={{
-            cells: [
-              { key: "name", content: "Name", isSortable: true },
-              { key: "project", content: "Project", isSortable: true },
-              { key: "link", content: "Link" },
-            ],
-          }}
-          rows={repos}
-          defaultSortKey="name"
-          defaultSortOrder="ASC"
-        />
-      )}
+      ) :
+      (<Repositories repositories={repos} />)
+      }
       <Heading size="medium" >
         Your Open Pull Requests
       </Heading>
@@ -122,17 +123,19 @@ const ConnectPage: React.FC = () => {
         <Text>No open pull requests.</Text>
       ) : (
         <Stack space="space.400">
-          {pullRequests.map((pr: any, index: number) => (
+          {pullRequests.map((pr: PullRequestWithStatus, index: number) => (
             <PullRequestCard
               index={index}
               id={pr.id}
-              number={pr.number}
+              prNumber={pr.prNumber}
               ticketName={pr.ticketName}
               repository={pr.repository}
               title={pr.title}
-              user='Test'
+              user={pr.prOwnerName}
               url={pr.url}
               onMerge={handleMerge}
+              onApprove={handleApprove}
+              errorMessage={pr.errorMessage}
             />
           ))}
         </Stack>

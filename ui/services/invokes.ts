@@ -1,19 +1,38 @@
-import { invoke } from '@forge/bridge';
+import { invoke } from "@forge/bridge";
 
-import { SaveTokenResponse } from './types';
+import type { Repository, Response, ResponseGetOpenPR } from "../../common/types";
 
-export const saveAndVerifyToken = (token: string): Promise<SaveTokenResponse> => {
-    return invoke<SaveTokenResponse>('saveToken', { token });
+export const saveAndVerifyToken = (
+  token: string
+): Promise<Response<null>> => {
+  return invoke("saveToken", { token });
 };
 
-export const getRepositoriesForUser = (): Promise<any> => {
-    return invoke<SaveTokenResponse>('getRepositories');
-}
+export const getRepositoriesForUser = (): Promise<Response<Repository[]>> => {
+  return invoke("getRepositories");
+};
 
-export const getPullRequests = (repositoryNames: string[]): Promise<any> => {
-	return invoke<SaveTokenResponse>('getOpenPullRequests', { repositoryNames });
-}
+export const getPullRequests = (repositoryNames: string[]): Promise<Response<ResponseGetOpenPR[]>> => {
+  return invoke("getOpenPullRequests", { repositoryNames });
+};
 
-export const mergePullRequest = (repositoryName: string, pullRequestId: number) => {
-   return invoke<SaveTokenResponse>('mergePullRequest', {repositoryName, pullRequestId}) 
+export const mergePullRequest = (
+  repositoryName: string,
+  pullRequestNumber: number
+): Promise<Response<null>> => {
+  return invoke("mergePullRequest", {
+    repositoryName,
+    pullRequestNumber,
+  });
+};
+
+export const approvePullRequest = (
+  repositoryName: string,
+  pullRequestNumber: number
+): Promise<Response<null>> => {
+  return invoke("approvePullRequest", { repositoryName, pullRequestNumber });
+};
+
+export const checkExistingToken = (): Promise<Response<null>> => {
+	return invoke("checkToken");
 }
